@@ -15,7 +15,7 @@ docker build -t yolox_container .
 ### **Step 2: Run the Container with GPU Support**
 Run the container, exposing the necessary port for Jupyter Lab:
 ```bash
-docker run --gpus all -it --rm -p 8888:8888 yolox_container
+docker run --gpus all -it --rm -p 8888:8888 --memory=64g --memory-swap=64g --shm-size=32g yolox_container
 ```
 
 ---
