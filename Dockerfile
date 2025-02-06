@@ -1,40 +1,105 @@
-# Используем базовый образ с поддержкой GPU
-FROM nvidia/cuda:11.8.0-cudnn8-devel-ubuntu22.04
+# YOLOX Training and Inference Guide
 
-# Устанавливаем основные инструменты
-RUN apt-get update && apt-get install -y \
-    python3-pip \
-    python3-dev \
-    git \
-    libgl1-mesa-glx \
-    libglib2.0-0 && rm -rf /var/lib/apt/lists/*
+This guide will walk you through setting up a YOLOX environment, preparing your dataset, and performing both training and inference.
 
-# Обновляем pip
-RUN python3 -m pip install --upgrade pip
+---
 
-# Указываем рабочую директорию
-WORKDIR /workspace
+## **1. Build and Run the Docker Container**
 
-# Копируем файлы из текущей директории в контейнер
-COPY . /workspace
+### **Step 1: Build the Docker Image**
+```bash
+docker build -t yolox_container .
+```
 
-# Клонируем YOLOX (пример, если нужно отдельное клонирование)
-RUN git clone https://github.com/aicsfu/YOLOX.git /workspace/YOLOX
+### **Alternative: Load a Prebuilt Docker Image**
+If you already have a saved Docker image file (e.g., `yolox_container.tar`), you can load it instead of building:
+```bash
+docker load -i yolox_container.tar
+```
 
-# Переходим в директорию YOLOX
-WORKDIR /workspace/YOLOX
+### **Step 2: Run the Container with GPU Support**
+Run the container, exposing the necessary port for Jupyter Lab and sharing the dataset folder:
+```bash
+docker run --gpus all -it --rm -p 8888:8888 --memory=64g --memory-swap=64g --shm-size=32g -v /path/to/shared/dataset:/workspace/shared yolox_container
+```
+Replace `/path/to/shared/dataset` with the absolute path to your dataset directory on the host machine.
 
-# Устанавливаем PyTorch версии 2.5.1 (совместимой с CUDA 11.8)
-RUN pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cu118 
+---
 
-# Устанавливаем YOLOX как библиотеку
-RUN pip install -v -e .
+## **2. Dataset Preparation**
 
-# Устанавливаем Jupyter Lab
-RUN pip install jupyterlab
+### **Dataset Structure**
+Ensure your dataset is in COCO format and organized as follows:
+```
+your-dataset/
+├── annotations/
+│   ├── instances_train2017.json
+│   ├── instances_val2017.json
+├── train2017/
+│   ├── <training set images>
+├── val2017/
+│   ├── <validation set images>
+```
+Place your dataset folder (e.g., `your-dataset`) into the shared directory specified when running the container.
 
-# Возвращаемся в рабочую директорию /workspace
-WORKDIR /workspace
+---
 
-# Команда по умолчанию (запуск Jupyter Lab на 0.0.0.0:8888)
-CMD ["jupyter", "lab", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--ServerApp.allow_root=True", "--ServerApp.allow_remote_access=True", "--ServerApp.token=", "--ServerApp.password="]
+## **3. Launch Jupyter Lab**
+
+After starting the container, launch Jupyter Lab by executing the following command inside the container:
+
+```bash
+jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --ServerApp.allow_root=True --ServerApp.allow_remote_access=True --ServerApp.token='' --ServerApp.password=''
+```
+
+Once Jupyter Lab is running, navigate to `http://localhost:8888` in your web browser to access it.
+
+---
+
+## **4. Inference with YOLOXInferencer**
+
+After training your model (or when using a pretrained checkpoint), you can perform inference using the `YOLOXInferencer` class from `utils.py`.
+
+### **Example Usage**
+
+Below is an example of how to use `YOLOXInferencer` in a Python script:
+
+```python
+import cv2
+from utils import YOLOXInferencer  # YOLOXInferencer is defined in utils.py
+
+
+# Instead of specifying the experiment configuration file,
+# you can simply specify the model name.
+model_name = "yolox_m"  # For example, "yolox_m" or "yolo-s"
+ckpt_path = "shared/YOLOX_outputs/yolox_m_3.1/best_ckpt.pth"  # Path to the checkpoint file
+
+# Initialize the inferencer.
+# Here, we set exp_file to None so that the inferencer uses the default configuration for the given model_name.
+inferencer = YOLOXInferencer(exp_file=None, model_name=model_name, ckpt_path=ckpt_path, num_classes=1)
+
+# Specify the path to the image (or provide a numpy array in BGR format).
+image_path = "/workspace/shared/your-dataset/val2017/sample.jpg"
+
+# Perform inference.
+predictions = inferencer.predict(image_path)
+print("Predictions:", predictions)
+
+# Visualize the detections.
+img = cv2.imread(image_path)
+img_with_dets = inferencer.visualize(predictions, img)
+
+# Optionally, save the output image.
+cv2.imwrite("output.jpg", img_with_dets)
+```
+
+### **Notes**
+
+- In the example above, adjust the paths (`ckpt_path` and `image_path`) to match your setup.
+- By setting `exp_file` to `None` and providing the `model_name`, the inferencer will automatically use the default configuration corresponding to that model.
+- The `YOLOXInferencer` class handles image loading, pre-processing, model inference, and post-processing.
+- The `visualize` method overlays detection boxes, confidence scores, and class labels on the original image. You can save or further process the resulting image as needed.
+
+---
+
+Follow these instructions to set up your environment for both training and inference with YOLOX. Happy training and testing!
