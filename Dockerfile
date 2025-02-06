@@ -24,8 +24,8 @@ RUN git clone https://github.com/aicsfu/YOLOX.git /workspace/YOLOX
 # Переходим в директорию YOLOX
 WORKDIR /workspace/YOLOX
 
-# Устанавливаем PyTorch (версия совместима с CUDA 11.8)
-RUN pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+# Устанавливаем PyTorch версии 2.5.1 (совместимой с CUDA 11.8)
+RUN pip install torch==2.5.1 torchvision==0.20.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cu118 
 
 # Устанавливаем YOLOX как библиотеку
 RUN pip install -v -e .
@@ -38,4 +38,3 @@ WORKDIR /workspace
 
 # Команда по умолчанию (запуск Jupyter Lab на 0.0.0.0:8888)
 CMD ["jupyter", "lab", "--ip=0.0.0.0", "--port=8888", "--no-browser", "--ServerApp.allow_root=True", "--ServerApp.allow_remote_access=True", "--ServerApp.token=", "--ServerApp.password="]
-
